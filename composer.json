@@ -4,7 +4,8 @@
     "type": "library",
     "require": {
         "laravel/socialite": "^4.0",
-        "lcobucci/jwt": "^3.3"
+        "lcobucci/jwt": "^3.3",
+        "socialiteproviders/manager": "^3.0"
     },
     "license": "MIT",
     "authors": [
