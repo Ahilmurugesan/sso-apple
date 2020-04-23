@@ -60,10 +60,10 @@ class AppleKeyGenerate extends Command
             'services.apple.auth_key' => $auth_key,
         ]);
 
-        $exists = Storage::disk('local')->exists(config('services.apple.auth_key').'.txt');
+        $exists = Storage::disk('local')->exists(config('services.apple.auth_key'));
 
         if($exists){
-            $privateKeyFile = Storage::disk('local')->get(config('services.apple.auth_key').'.txt');
+            $privateKeyFile = Storage::disk('local')->get(config('services.apple.auth_key'));
 
             try{
                 $signer = new Sha256();
@@ -78,43 +78,134 @@ class AppleKeyGenerate extends Command
                     ->withHeader('alg', 'ES256')
                     ->getToken($signer, $privateKey); // Retrieves the generated token
 
-                $key = $token->__toString();
+                $client_secret = $token->__toString();
 
-                self::writeNewAppleSecretKeyWith($key);
+
+                $env_vars = [
+                    'APPLE_KEY_ID' => $key_id,
+                    'APPLE_TEAM_ID' => $team_id,
+                    'APPLE_CLIENT_ID' => $client_id,
+                    'APPLE_CLIENT_SECRET' => $client_secret,
+                ];
+                foreach($env_vars as $env_key => $env_val){
+                    self::setEnv($env_key, $env_val);
+                }
 
             }catch (\Exception $exception){
                 $this->error($exception->getMessage());
             }
         }else {
 
-            $this->error(config('services.apple.auth_key').'.txt'.' - '.'File not found in the local driver path');
+            $this->error(config('services.apple.auth_key').' - '.'File not found in the local driver path');
 
         }
     }
 
     /**
-     * Write a new environment app secret key with the given key.
+     * Set the ENV
      *
-     * @param $key
+     * @return mixed
      */
-    protected function writeNewAppleSecretKeyWith($key)
+    public function setEnv($key, $value)
     {
-        file_put_contents($this->laravel->environmentFilePath(), preg_replace(
-            $this->keyReplacementPattern(),
-            'APPLE_CLIENT_SECRET='.$key,
-            file_get_contents($this->laravel->environmentFilePath())
-        ));
+        $envFilePath = app()->environmentFilePath();
+        $contents = file_get_contents($envFilePath);
+
+        if ($oldValue = $this->getOldValue($contents, $key)) {
+            $contents = str_replace("{$key}={$oldValue}", "{$key}={$value}", $contents);
+            $this->writeFile($envFilePath, $contents);
+
+            return $this->info("Environment variable with key '{$key}' has been changed from '{$oldValue}' to '{$value}'");
+        }
+
+        $contents = $contents . "\n{$key}={$value}";
+        $this->writeFile($envFilePath, $contents);
+
+        return $this->info("A new environment variable with key '{$key}' has been set to '{$value}'");
     }
 
     /**
-     * Get a regex pattern that will match env APPLE_CLIENT_SECRET with any random key.
+     * Overwrite the contents of a file.
      *
+     * @param string $path
+     * @param string $contents
+     * @return boolean
+     */
+    protected function writeFile(string $path, string $contents): bool
+    {
+        $file = fopen($path, 'w');
+        fwrite($file, $contents);
+
+        return fclose($file);
+    }
+
+    /**
+     * Get the old value of a given key from an environment file.
+     *
+     * @param string $envFile
+     * @param string $key
      * @return string
      */
-    protected function keyReplacementPattern()
+    protected function getOldValue(string $envFile, string $key): string
     {
-        $escaped = preg_quote('='.$this->laravel['config']['apple.client_secret'], '/');
+        // Match the given key at the beginning of a line
+        preg_match("/^{$key}=[^\r\n]*/m", $envFile, $matches);
 
-        return "/^APPLE_CLIENT_SECRET{$escaped}/m";
+        if (count($matches)) {
+            return substr($matches[0], strlen($key) + 1);
+        }
+
+        return '';
+    }
+
+    /**
+     * Determine what the supplied key and value is from the current command.
+     *
+     * @return array
+     */
+    protected function getKeyValue(): array
+    {
+        $key = $this->argument('key');
+        $value = $this->argument('value');
+
+        if (! $value) {
+            $parts = explode('=', $key, 2);
+
+            if (count($parts) !== 2) {
+                throw new InvalidArgumentException('No value was set');
+            }
+
+            $key = $parts[0];
+            $value = $parts[1];
+        }
+
+        if (! $this->isValidKey($key)) {
+            throw new InvalidArgumentException('Invalid argument key');
+        }
+
+        if (! is_bool(strpos($value, ' '))) {
+            $value = '"' . $value . '"';
+        }
+
+        return [strtoupper($key), $value];
+    }
+
+    /**
+     * Check if a given string is valid as an environment variable key.
+     *
+     * @param string $key
+     * @return boolean
+     */
+    protected function isValidKey(string $key): bool
+    {
+        if (str_contains($key, '=')) {
+            throw new InvalidArgumentException("Environment key should not contain '='");
+        }
+
+        if (!preg_match('/^[a-zA-Z_]+$/', $key)) {
+            throw new InvalidArgumentException('Invalid environment key. Only use letters and underscores');
+        }
+
+        return true;
     }
 }
