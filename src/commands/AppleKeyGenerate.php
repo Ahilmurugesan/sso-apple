@@ -4,6 +4,9 @@ namespace Ahilan\Apple\commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
+use Lcobucci\JWT\Builder;
+use Lcobucci\JWT\Signer\Ecdsa\Sha256;
+use Lcobucci\JWT\Signer\Key;
 
 class AppleKeyGenerate extends Command
 {
@@ -12,7 +15,7 @@ class AppleKeyGenerate extends Command
      *
      * @var string
      */
-    protected $signature = 'socailite:apple';
+    protected $signature = 'socialite:apple';
 
     /**
      * The console command description.
@@ -36,45 +39,65 @@ class AppleKeyGenerate extends Command
      */
     public function handle()
     {
-        $key = $this->generateClientSecret();
-        //validation
-        $this->writeNewEnvironmentFileWith($key);
+        self::generateClientSecret();
     }
 
+    /**
+     * Function to generate apple client secret
+     *
+     * @throws \Illuminate\Contracts\Filesystem\FileNotFoundException
+     */
     public function generateClientSecret()
     {
-        $team_id = $this->ask('Enter Team Id: ');
-        $key_id = $this->ask('Enter Key Id: ');
-        $client_id = $this->ask('Enter Client Id: ');
-        $auth_key = $this->ask('Enter Auth Key: ');
-        config('apple.key_id',$key_id);
-        config('apple.team_id',$team_id);
-        config('apple.client_id',$client_id);
-        config('apple.auth_key',$auth_key); //ensure auth file is there
-        $privateKeyFile = Storage::disk('local')->get(config('services.apple.auth_key'));
+        $team_id = $this->ask('Enter Team Id ');
+        $key_id = $this->ask('Enter Key Id ');
+        $client_id = $this->ask('Enter Client Id ');
+        $auth_key = $this->ask('Enter Auth Key ');
+        config([
+            'services.apple.key_id' => $key_id,
+            'services.apple.team_id' => $team_id,
+            'services.apple.client_id' => $client_id,
+            'services.apple.auth_key' => $auth_key,
+        ]);
 
-        //$team_id = config('services.sign_in_with_apple.team_id'); //value got from apple
-        //$key_id = config('services.sign_in_with_apple.key_id'); //value got from apple
+        $exists = Storage::disk('local')->exists(config('services.apple.auth_key').'.txt');
 
-        $signer = new \Lcobucci\JWT\Signer\Ecdsa\Sha256();
-        $privateKey = new Key($privateKeyFile);
-        $token = (new Builder())->issuedBy($team_id)// Configures the issuer (iss claim)
-        ->permittedFor("https://appleid.apple.com")// Configures the audience (aud claim)
-        ->issuedAt(time())// Configures the time that the token was issue (iat claim)
-        ->expiresAt(time() + 86400 * 180)// Configures the expiration time of the token (exp claim)
-        ->relatedTo(config('services.sign_in_with_apple.client_id')) //Configures the subject
-        ->withHeader('kid', $key_id)
-            ->withHeader('type', 'JWT')
-            ->withHeader('alg', 'ES256')
-            ->getToken($signer, $privateKey); // Retrieves the generated token
-        //$a = $token->getHeaders(); // Retrieves the token headers
-        //$b = $token->getClaims(); // Retrieves the token claims
+        if($exists){
+            $privateKeyFile = Storage::disk('local')->get(config('services.apple.auth_key').'.txt');
 
+            try{
+                $signer = new Sha256();
+                $privateKey = new Key($privateKeyFile);
+                $token = (new Builder())->issuedBy($team_id)// Configures the issuer (iss claim)
+                ->permittedFor("https://appleid.apple.com")// Configures the audience (aud claim)
+                ->issuedAt(time())// Configures the time that the token was issue (iat claim)
+                ->expiresAt(time() + 86400 * 180)// Configures the expiration time of the token (exp claim)
+                ->relatedTo(config('services.apple.client_id')) //Configures the subject
+                ->withHeader('kid', $key_id)
+                    ->withHeader('type', 'JWT')
+                    ->withHeader('alg', 'ES256')
+                    ->getToken($signer, $privateKey); // Retrieves the generated token
 
-        return $token->__toString();
+                $key = $token->__toString();
+
+                self::writeNewAppleSecretKeyWith($key);
+
+            }catch (\Exception $exception){
+                $this->error($exception->getMessage());
+            }
+        }else {
+
+            $this->error(config('services.apple.auth_key').'.txt'.' - '.'File not found in the local driver path');
+
+        }
     }
 
-    protected function writeNewEnvironmentFileWith($key)
+    /**
+     * Write a new environment app secret key with the given key.
+     *
+     * @param $key
+     */
+    protected function writeNewAppleSecretKeyWith($key)
     {
         file_put_contents($this->laravel->environmentFilePath(), preg_replace(
             $this->keyReplacementPattern(),
@@ -90,7 +113,7 @@ class AppleKeyGenerate extends Command
      */
     protected function keyReplacementPattern()
     {
-        $escaped = preg_quote('='.$this->laravel['services']['apple.client_secret'], '/');
+        $escaped = preg_quote('='.$this->laravel['config']['apple.client_secret'], '/');
 
         return "/^APPLE_CLIENT_SECRET{$escaped}/m";
     }
