@@ -49,15 +49,17 @@ class AppleKeyGenerate extends Command
      */
     public function generateClientSecret()
     {
+        $callback_url = $this->ask('Enter Callback Url');
         $team_id = $this->ask('Enter Team Id ');
         $key_id = $this->ask('Enter Key Id ');
         $client_id = $this->ask('Enter Client Id ');
         $auth_key = $this->ask('Enter Auth Key ');
         config([
-            'services.apple.key_id' => $key_id,
-            'services.apple.team_id' => $team_id,
-            'services.apple.client_id' => $client_id,
-            'services.apple.auth_key' => $auth_key,
+            'services.apple.redirect_url' => trim($callback_url),
+            'services.apple.key_id' => trim($key_id),
+            'services.apple.team_id' => trim($team_id),
+            'services.apple.client_id' => trim($client_id),
+            'services.apple.auth_key' => trim($auth_key),
         ]);
 
         $exists = Storage::disk('local')->exists(config('services.apple.auth_key'));
@@ -82,6 +84,7 @@ class AppleKeyGenerate extends Command
 
 
                 $env_vars = [
+                    'APPLE_CALLBACK_URL' => $callback_url,
                     'APPLE_KEY_ID' => $key_id,
                     'APPLE_TEAM_ID' => $team_id,
                     'APPLE_CLIENT_ID' => $client_id,
