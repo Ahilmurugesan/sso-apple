@@ -6,7 +6,7 @@
         "laravel/socialite": "^4.0",
         "lcobucci/jwt": "^3.3",
         "socialiteproviders/manager": "^3.0",
-        "lcobucci/jwt": "^3.3"
+        "firebase/php-jwt": "^5.2"
     },
     "license": "MIT",
     "authors": [
