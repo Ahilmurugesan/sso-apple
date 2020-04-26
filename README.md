@@ -62,7 +62,7 @@ protected $listen = [
 
 * [Laravel docs about events](http://laravel.com/docs/events)
 
-## 4. Configuration setup
+## 4. Configuration Setup
 
 You will need to add an entry to the services configuration file so that after config files are cached for usage in production environment (Laravel command `artisan config:cache`) all config is still available.
 
@@ -99,6 +99,11 @@ Client Secret will be automatically generated and added to the .env file by usin
 > The expiration time registered claim key, the value of which must not be greater than 15777000 (6 months in seconds) from the Current Unix Time on the server.
 
 [Sign in with Apple](https://developer.apple.com/documentation/sign_in_with_apple/generate_and_validate_tokens) requires the Client Secret to be refreshed every six months. You can adjust the Token refresh Interval. There is a scheduled task which comes along with this package which will ensure that the Client Token is refreshed automatically. Please do ensure that you have enabled [Task Scheduling](https://laravel.com/docs/master/scheduling#introduction)
+
+To manually refresh the Client Secret, please run the following command
+```
+php artisan socialite:apple --refresh
+```
 
 ## 5. Usage
 
