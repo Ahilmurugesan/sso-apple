@@ -155,16 +155,23 @@ class Provider extends AbstractProvider implements ProviderInterface
      */
     public function user()
     {
-        //Since Apple uses cross domain form_post, so the session is lost
-        /*if ($this->hasInvalidState()) {
-            throw new InvalidStateException;
-        }*/
+        //Temporary fix to enable stateless
+        if ($this->usesState()) {
+            $this->request->session()->put('state', $this->request->input('state'));
+            if ($this->hasInvalidState()) {
+                throw new InvalidStateException;
+            }
+        }
 
         $response = $this->getAccessTokenResponse($this->getCode());
 
         $user = $this->mapUserToObject($this->getUserByToken(
             $token = Arr::get($response, 'id_token')
         ));
+
+        if ($user instanceof User) {
+            $user->setAccessTokenResponseBody($response);
+        }
 
         return $user->setToken($token)
             ->setRefreshToken(Arr::get($response, 'refresh_token'))
