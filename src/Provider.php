@@ -19,6 +19,8 @@ class Provider extends AbstractProvider implements ProviderInterface
      */
     const IDENTIFIER = 'APPLE';
 
+    private const URL = 'https://appleid.apple.com';
+
     /**
      * {@inheritdoc}
      */
@@ -39,7 +41,15 @@ class Provider extends AbstractProvider implements ProviderInterface
      */
     protected function getAuthUrl($state)
     {
-        return $this->buildAuthUrlFromBase('https://appleid.apple.com/auth/authorize', $state);
+        return $this->buildAuthUrlFromBase(self::URL.'/auth/authorize', $state);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    protected function getTokenUrl()
+    {
+        return self::URL.'/auth/token';
     }
 
     /**
@@ -57,18 +67,10 @@ class Provider extends AbstractProvider implements ProviderInterface
 
         if ($this->usesState()) {
             $fields['state'] = $state;
-            $fields['nonce'] = strtotime('12:00:00')."-".$state;
+            $fields['nonce'] = strtotime('12:00:00') . "-" . $state;
         }
 
         return array_merge($fields, $this->parameters);
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    protected function getTokenUrl()
-    {
-        return 'https://appleid.apple.com/auth/token';
     }
 
     /**
@@ -119,7 +121,7 @@ class Provider extends AbstractProvider implements ProviderInterface
 
         $token = (new Parser())->parse((string) $jwt);
 
-        if($token->getClaim('iss') !== 'https://appleid.apple.com'){
+        if($token->getClaim('iss') !== self::URL){
             throw new InvalidTokenException("Invalid Issuer");
         }
         if($token->getClaim('aud') !== config('services.apple.client_id')){
@@ -129,7 +131,7 @@ class Provider extends AbstractProvider implements ProviderInterface
             throw new InvalidTokenException("Token Expired");
         }
 
-        $data = json_decode(file_get_contents('https://appleid.apple.com/auth/keys'), true);
+        $data = json_decode(file_get_contents(self::URL.'/auth/keys'), true);
 
         $public_keys = JWK::parseKeySet($data);
 
@@ -152,9 +154,10 @@ class Provider extends AbstractProvider implements ProviderInterface
      */
     public function user()
     {
-        if ($this->hasInvalidState()) {
+        //Since Apple uses cross domain form_post, so the session is lost
+        /*if ($this->hasInvalidState()) {
             throw new InvalidStateException;
-        }
+        }*/
 
         $response = $this->getAccessTokenResponse($this->getCode());
 
