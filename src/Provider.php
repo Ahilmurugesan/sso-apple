@@ -3,6 +3,7 @@
 namespace Ahilan\Apple;
 
 use Illuminate\Support\Arr;
+use Illuminate\Http\Response;
 use SocialiteProviders\Manager\OAuth2\AbstractProvider;
 use SocialiteProviders\Manager\OAuth2\User;
 use Laravel\Socialite\Two\ProviderInterface;
@@ -122,13 +123,13 @@ class Provider extends AbstractProvider implements ProviderInterface
         $token = (new Parser())->parse((string) $jwt);
 
         if($token->getClaim('iss') !== self::URL){
-            throw new InvalidTokenException("Invalid Issuer");
+            throw new InvalidTokenException("Invalid Issuer", Response::HTTP_UNAUTHORIZED);
         }
         if($token->getClaim('aud') !== config('services.apple.client_id')){
-            throw new InvalidTokenException("Invalid Client ID");
+            throw new InvalidTokenException("Invalid Client ID", Response::HTTP_UNAUTHORIZED);
         }
         if($token->isExpired()){
-            throw new InvalidTokenException("Token Expired");
+            throw new InvalidTokenException("Token Expired", Response::HTTP_UNAUTHORIZED);
         }
 
         $data = json_decode(file_get_contents(self::URL.'/auth/keys'), true);
