@@ -25,14 +25,14 @@ class AppleServiceProvider extends ServiceProvider
 
     private function bootAppleProvide()
     {
-        $socialite = $this->app->make(Factory::class);
+        /*$socialite = $this->app->make(Factory::class);
         $socialite->extend(
             'apple',
             function ($app) use ($socialite) {
                 $config = $app['config']['services.apple'];
                 return $socialite->buildProvider(Provider::class, $config);
             }
-        );
+        );*/
 
         $this->commands($this->commands);
     }
