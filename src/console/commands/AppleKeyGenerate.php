@@ -1,8 +1,9 @@
 <?php
 
-namespace Ahilan\Apple\commands;
+namespace Ahilan\Apple\console\commands;
 
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
 use Lcobucci\JWT\Builder;
 use Lcobucci\JWT\Signer\Ecdsa\Sha256;
@@ -15,7 +16,7 @@ class AppleKeyGenerate extends Command
      *
      * @var string
      */
-    protected $signature = 'socialite:apple';
+    protected $signature = 'socialite:apple {--refresh : Refresh client secret}';
 
     /**
      * The console command description.
@@ -39,7 +40,11 @@ class AppleKeyGenerate extends Command
      */
     public function handle()
     {
-        self::generateClientSecret();
+        if(!$this->option('refresh')){
+            self::setup();
+        }else{
+            self::generateClientSecret();
+        }
     }
 
     /**
@@ -47,21 +52,42 @@ class AppleKeyGenerate extends Command
      *
      * @throws \Illuminate\Contracts\Filesystem\FileNotFoundException
      */
-    public function generateClientSecret()
+    public function setup()
     {
-        $callback_url = $this->ask('Enter Callback Url');
         $team_id = $this->ask('Enter Team Id ');
         $key_id = $this->ask('Enter Key Id ');
         $client_id = $this->ask('Enter Client Id ');
         $auth_key = $this->ask('Enter Auth Key ');
+        $callback_url = $this->ask('Enter Redirect Uri',config('app.url').'/socialite/apple/callback');
         config([
-            'services.apple.redirect_url' => trim($callback_url),
+            'services.apple.redirect_uri' => trim($callback_url),
             'services.apple.key_id' => trim($key_id),
             'services.apple.team_id' => trim($team_id),
-            'services.apple.client_id' => trim($client_id),
             'services.apple.auth_key' => trim($auth_key),
+            'services.apple.client_id' => trim($client_id),
         ]);
 
+        $client_secret = self::generateClientSecret(false);
+
+        if(!is_null($client_secret)) {
+            $env_vars = [
+                'APPLE_REDIRECT_URI' => $callback_url,
+                'APPLE_KEY_ID' => $key_id,
+                'APPLE_TEAM_ID' => $team_id,
+                'APPLE_AUTH_KEY' => $auth_key,
+                'APPLE_CLIENT_ID' => $client_id,
+                'APPLE_CLIENT_SECRET' => $client_secret,
+            ];
+
+            self::writeEnv($env_vars);
+        }
+    }
+
+    /**
+     * @throws \Illuminate\Contracts\Filesystem\FileNotFoundException
+     */
+    private function generateClientSecret($refresh=true)
+    {
         $exists = Storage::disk('local')->exists(config('services.apple.auth_key'));
 
         if($exists){
@@ -70,30 +96,24 @@ class AppleKeyGenerate extends Command
             try{
                 $signer = new Sha256();
                 $privateKey = new Key($privateKeyFile);
-                $token = (new Builder())->issuedBy($team_id)// Configures the issuer (iss claim)
+                $token = (new Builder())->issuedBy(config('services.apple.team_id'))// Configures the issuer (iss claim)
                 ->permittedFor("https://appleid.apple.com")// Configures the audience (aud claim)
                 ->issuedAt(time())// Configures the time that the token was issue (iat claim)
                 ->expiresAt(time() + 86400 * 180)// Configures the expiration time of the token (exp claim)
                 ->relatedTo(config('services.apple.client_id')) //Configures the subject
-                ->withHeader('kid', $key_id)
+                ->withHeader('kid', config('services.apple.key_id'))
                     ->withHeader('type', 'JWT')
                     ->withHeader('alg', 'ES256')
                     ->getToken($signer, $privateKey); // Retrieves the generated token
 
                 $client_secret = $token->__toString();
 
-
-                $env_vars = [
-                    'APPLE_CALLBACK_URL' => $callback_url,
-                    'APPLE_KEY_ID' => $key_id,
-                    'APPLE_TEAM_ID' => $team_id,
-                    'APPLE_CLIENT_ID' => $client_id,
-                    'APPLE_CLIENT_SECRET' => $client_secret,
-                ];
-                foreach($env_vars as $env_key => $env_val){
-                    self::setEnv($env_key, $env_val);
+                if(!$refresh)
+                {
+                    return $client_secret;
+                }else{
+                    self::writeEnv(['APPLE_CLIENT_SECRET' => $client_secret]);
                 }
-
             }catch (\Exception $exception){
                 $this->error($exception->getMessage());
             }
@@ -104,6 +124,20 @@ class AppleKeyGenerate extends Command
         }
     }
 
+    /**
+     * Write the Env
+     *
+     * @param array $env_vars
+     */
+    private function writeEnv($env_vars)
+    {
+        foreach($env_vars as $env_key => $env_val){
+            self::setEnv($env_key, $env_val);
+        }
+        self::setEnv('APPLE_CLIENT_SECRET_UPATED_AT', time());
+
+        Artisan::call('config:clear');
+    }
     /**
      * Set the ENV
      *
