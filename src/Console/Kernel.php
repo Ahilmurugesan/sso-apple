@@ -1,6 +1,6 @@
 <?php
 
-namespace Ahilan\Apple\console;
+namespace Ahilan\Apple\Console;
 
 use App\Console\Kernel as ConsoleKernel;
 use Illuminate\Console\Scheduling\Schedule;

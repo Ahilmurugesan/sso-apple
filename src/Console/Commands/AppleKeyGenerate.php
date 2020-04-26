@@ -5,10 +5,10 @@ namespace Ahilan\Apple\console\commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 use Lcobucci\JWT\Builder;
 use Lcobucci\JWT\Signer\Ecdsa\Sha256;
 use Lcobucci\JWT\Signer\Key;
-use Illuminate\Support\Facades\Validator;
 
 class AppleKeyGenerate extends Command
 {

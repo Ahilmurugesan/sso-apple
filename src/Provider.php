@@ -2,12 +2,15 @@
 
 namespace Ahilan\Apple;
 
-use Firebase\JWT\JWK;
 use Illuminate\Support\Arr;
-use Laravel\Socialite\Two\InvalidStateException;
+use SocialiteProviders\Manager\OAuth2\AbstractProvider;
 use SocialiteProviders\Manager\OAuth2\User;
 use Laravel\Socialite\Two\ProviderInterface;
-use SocialiteProviders\Manager\OAuth2\AbstractProvider;
+use Laravel\Socialite\Two\InvalidStateException;
+use Firebase\JWT\JWK;
+use Lcobucci\JWT\Parser;
+use Lcobucci\JWT\Signer\Rsa\Sha256;
+use Ahilan\Apple\Exceptions\InvalidTokenException;
 
 class Provider extends AbstractProvider implements ProviderInterface
 {
@@ -54,6 +57,7 @@ class Provider extends AbstractProvider implements ProviderInterface
 
         if ($this->usesState()) {
             $fields['state'] = $state;
+            $fields['nonce'] = strtotime('12:00:00')."-".$state;
         }
 
         return array_merge($fields, $this->parameters);
@@ -95,11 +99,10 @@ class Provider extends AbstractProvider implements ProviderInterface
      */
     protected function getUserByToken($token)
     {
-        if(static::verify(base64_decode($token))) {
-            $claims = explode('.', $token)[1];
+        static::verify($token);
+        $claims = explode('.', $token)[1];
 
-            return json_decode(base64_decode($claims), true);
-        }
+        return json_decode(base64_decode($claims), true);
     }
 
     /**
@@ -112,13 +115,36 @@ class Provider extends AbstractProvider implements ProviderInterface
      */
     public static function verify($jwt)
     {
+        $signer = new Sha256();
+
+        $token = (new Parser())->parse((string) $jwt);
+
+        if($token->getClaim('iss') !== 'https://appleid.apple.com'){
+            throw new InvalidTokenException("Invalid Issuer");
+        }
+        if($token->getClaim('aud') !== config('services.apple.client_id')){
+            throw new InvalidTokenException("Invalid Client ID");
+        }
+        if(!$token->isExpired()){
+            throw new InvalidTokenException("Token Expired");
+        }
+
         $data = json_decode(file_get_contents('https://appleid.apple.com/auth/keys'), true);
-        $res = JWK::parseKeySet($data);
-        $public_key = openssl_pkey_get_details($res[$data['keys'][0]['kid']]);
 
-        $key = openssl_get_publickey($public_key['key']);
+        $public_keys = JWK::parseKeySet($data);
 
-        return JWK::decode($jwt, $key, ['RS256']);
+        $signature_verified = false;
+
+        foreach ($public_keys as $res) {
+            $publicKey = openssl_pkey_get_details($res);
+            if($token->verify($signer, $publicKey['key'])){
+                $signature_verified = true;
+            }
+
+        }
+        if(!$signature_verified) {
+            throw new InvalidTokenException("Invalid JWT Signature");
+        }
     }
 
     /**

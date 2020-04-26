@@ -2,7 +2,7 @@
 
 namespace Ahilan\Apple;
 
-use Ahilan\Apple\console\commands\AppleKeyGenerate;
+use Ahilan\Apple\Console\Commands\AppleKeyGenerate;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Socialite\Contracts\Factory;
 
@@ -49,7 +49,7 @@ class AppleServiceProvider extends ServiceProvider
     {
         $this->app->singleton('ahilan.apple.console.kernel', function($app) {
             $dispatcher = $app->make(\Illuminate\Contracts\Events\Dispatcher::class);
-            return new \Ahilan\Apple\console\Kernel($app, $dispatcher);
+            return new \Ahilan\Apple\Console\Kernel($app, $dispatcher);
         });
 
         $this->app->make('ahilan.apple.console.kernel');
