@@ -2,6 +2,7 @@
 
 namespace Ahilan\Apple;
 
+use Firebase\JWT\JWK;
 use Illuminate\Support\Arr;
 use Laravel\Socialite\Two\InvalidStateException;
 use SocialiteProviders\Manager\OAuth2\User;
@@ -29,8 +30,6 @@ class Provider extends AbstractProvider implements ProviderInterface
      * @var string
      */
     protected $scopeSeparator = ' ';
-
-
 
     /**
      * {@inheritdoc}
@@ -96,9 +95,30 @@ class Provider extends AbstractProvider implements ProviderInterface
      */
     protected function getUserByToken($token)
     {
-        $claims = explode('.', $token)[1];
+        if(static::verify(base64_decode($token))) {
+            $claims = explode('.', $token)[1];
 
-        return json_decode(base64_decode($claims), true);
+            return json_decode(base64_decode($claims), true);
+        }
+    }
+
+    /**
+     * Verify apple jwt
+     *
+     * @param $jwt
+     *
+     * @return object
+     * @see https://appleid.apple.com/auth/keys
+     */
+    public static function verify($jwt)
+    {
+        $data = json_decode(file_get_contents('https://appleid.apple.com/auth/keys'), true);
+        $res = JWK::parseKeySet($data);
+        $public_key = openssl_pkey_get_details($res[$data['keys'][0]['kid']]);
+
+        $key = openssl_get_publickey($public_key['key']);
+
+        return JWK::decode($jwt, $key, ['RS256']);
     }
 
     /**
