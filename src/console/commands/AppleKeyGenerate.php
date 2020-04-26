@@ -58,7 +58,7 @@ class AppleKeyGenerate extends Command
         $team_id = $this->ask('Enter Team Id ');
         $key_id = $this->ask('Enter Key Id ');
         $client_id = $this->ask('Enter Client Id ');
-        $auth_key = $this->anticipate('Enter Auth Key ',['AuthKey_'.$key_id.'.p8']);
+        $auth_key = $this->anticipate('Enter Auth Key ',['AuthKey_'.$key_id.'.p8'], 'AuthKey_'.$key_id.'.p8');
         $callback_url = $this->ask('Enter Redirect Uri',config('app.url').'/socialite/apple/callback');
         $refresh_token_interval_days = $this->ask('Enter client secret refresh interval(days)',180);
 

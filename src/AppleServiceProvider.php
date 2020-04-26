@@ -19,6 +19,7 @@ class AppleServiceProvider extends ServiceProvider
 
     public function register()
     {
+        $this->registerConfiguration();
         $this->registerAppleScheduler();
     }
 
@@ -36,6 +37,14 @@ class AppleServiceProvider extends ServiceProvider
         $this->commands($this->commands);
     }
 
+    protected function registerConfiguration()
+    {
+        $this->mergeConfigFrom(
+            __DIR__ . '/config/services.php',
+            'services'
+        );
+    }
+
     private function registerAppleScheduler()
     {
         $this->app->singleton('ahilan.apple.console.kernel', function($app) {
@@ -45,4 +54,5 @@ class AppleServiceProvider extends ServiceProvider
 
         $this->app->make('ahilan.apple.console.kernel');
     }
+
 }
