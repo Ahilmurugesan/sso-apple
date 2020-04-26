@@ -2,7 +2,7 @@
 
 return [
     "apple" => [
-        "redirect_uri" => env("APPLE_REDIRECT_URI"),
+        "redirect" => env("APPLE_REDIRECT_URI"),
         "key_id" => env("APPLE_KEY_ID"),
         "team_id" => env("APPLE_TEAM_ID"),
         "auth_key" => env("APPLE_AUTH_KEY"),

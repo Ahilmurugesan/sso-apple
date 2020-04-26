@@ -63,7 +63,7 @@ class AppleKeyGenerate extends Command
         $refresh_token_interval_days = $this->ask('Enter client secret refresh interval(days)',180);
 
         config([
-            'services.apple.redirect_uri' => trim($callback_url),
+            'services.apple.redirect' => trim($callback_url),
             'services.apple.key_id' => trim($key_id),
             'services.apple.team_id' => trim($team_id),
             'services.apple.auth_key' => trim($auth_key),
@@ -94,7 +94,7 @@ class AppleKeyGenerate extends Command
     private function generateClientSecret($refresh=true)
     {
         $validator = Validator::make(config('services.apple'), [
-            'redirect_uri' => 'required|url',
+            'redirect' => 'required|url',
             'key_id' => 'required',
             'team_id' => 'required',
             'auth_key' => 'required',
@@ -121,7 +121,7 @@ class AppleKeyGenerate extends Command
                 $token = (new Builder())->issuedBy(config('services.apple.team_id'))// Configures the issuer (iss claim)
                 ->permittedFor("https://appleid.apple.com")// Configures the audience (aud claim)
                 ->issuedAt(time())// Configures the time that the token was issue (iat claim)
-                ->expiresAt(time() + 86400 * 180)// Configures the expiration time of the token (exp claim)
+                ->expiresAt(time() + 86400 * config('services.apple.refresh_token_interval_days'))// Configures the expiration time of the token (exp claim)
                 ->relatedTo(config('services.apple.client_id')) //Configures the subject
                 ->withHeader('kid', config('services.apple.key_id'))
                     ->withHeader('type', 'JWT')
