@@ -125,7 +125,7 @@ class Provider extends AbstractProvider implements ProviderInterface
         if($token->getClaim('aud') !== config('services.apple.client_id')){
             throw new InvalidTokenException("Invalid Client ID");
         }
-        if(!$token->isExpired()){
+        if($token->isExpired()){
             throw new InvalidTokenException("Token Expired");
         }
 
