@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Storage;
 use Lcobucci\JWT\Builder;
 use Lcobucci\JWT\Signer\Ecdsa\Sha256;
 use Lcobucci\JWT\Signer\Key;
+use Illuminate\Support\Facades\Validator;
 
 class AppleKeyGenerate extends Command
 {
@@ -57,19 +58,22 @@ class AppleKeyGenerate extends Command
         $team_id = $this->ask('Enter Team Id ');
         $key_id = $this->ask('Enter Key Id ');
         $client_id = $this->ask('Enter Client Id ');
-        $auth_key = $this->ask('Enter Auth Key ');
+        $auth_key = $this->anticipate('Enter Auth Key ',['AuthKey_'.$key_id.'.p8']);
         $callback_url = $this->ask('Enter Redirect Uri',config('app.url').'/socialite/apple/callback');
+        $refresh_token_interval_days = $this->ask('Enter client secret refresh interval(days)',180);
+
         config([
             'services.apple.redirect_uri' => trim($callback_url),
             'services.apple.key_id' => trim($key_id),
             'services.apple.team_id' => trim($team_id),
             'services.apple.auth_key' => trim($auth_key),
             'services.apple.client_id' => trim($client_id),
+            'services.apple.refresh_token_interval_days' => trim($refresh_token_interval_days),
         ]);
 
         $client_secret = self::generateClientSecret(false);
 
-        if(!is_null($client_secret)) {
+        if(!empty($client_secret)) {
             $env_vars = [
                 'APPLE_REDIRECT_URI' => $callback_url,
                 'APPLE_KEY_ID' => $key_id,
@@ -77,6 +81,7 @@ class AppleKeyGenerate extends Command
                 'APPLE_AUTH_KEY' => $auth_key,
                 'APPLE_CLIENT_ID' => $client_id,
                 'APPLE_CLIENT_SECRET' => $client_secret,
+                'APPLE_REFRESH_TOKEN_INTERVAL_DAYS' => $refresh_token_interval_days,
             ];
 
             self::writeEnv($env_vars);
@@ -88,6 +93,23 @@ class AppleKeyGenerate extends Command
      */
     private function generateClientSecret($refresh=true)
     {
+        $validator = Validator::make(config('services.apple'), [
+            'redirect_uri' => 'required|url',
+            'key_id' => 'required',
+            'team_id' => 'required',
+            'auth_key' => 'required',
+            'client_id' => 'required',
+            'refresh_token_interval_days' => 'required|numeric',
+        ]);
+
+        if ($validator->fails()) {
+            foreach ($validator->errors()->all() as $error)
+            {
+                $this->error($error);
+            }
+            return null;
+        }
+
         $exists = Storage::disk('local')->exists(config('services.apple.auth_key'));
 
         if($exists){
@@ -119,7 +141,7 @@ class AppleKeyGenerate extends Command
             }
         }else {
 
-            $this->error(config('services.apple.auth_key').' - '.'File not found in the local driver path');
+            $this->error(config('services.apple.auth_key').' - '.'File not found in the local driver path('.config("filesystems.disks.local.root").')');
 
         }
     }
@@ -134,7 +156,7 @@ class AppleKeyGenerate extends Command
         foreach($env_vars as $env_key => $env_val){
             self::setEnv($env_key, $env_val);
         }
-        self::setEnv('APPLE_CLIENT_SECRET_UPATED_AT', time());
+        self::setEnv('APPLE_CLIENT_SECRET_UPDATED_AT', time() - 86400);
 
         Artisan::call('config:clear');
     }
