@@ -105,6 +105,9 @@ To manually refresh the Client Secret, please run the following command
 php artisan socialite:apple --refresh
 ```
 
+Please watch the following video to understand the flow to obtain the required Sign in with Apple credentials.
+
+
 ## 5. Usage
 
 * [Laravel docs on configuration](http://laravel.com/docs/master/configuration)
@@ -161,7 +164,7 @@ $additionalProviderConfig = ['site' => 'meta.stackoverflow.com'];
 $config = new \SocialiteProviders\Manager\Config($clientId, $clientSecret, $redirectUrl);
 return Socialite::with('apple')->setConfig($config)->redirect();
 ```
-`
+
 ### Retrieving the Access Token Response Body
 
 Laravel Socialite by default only allows access to the `access_token`.  Which can be accessed
